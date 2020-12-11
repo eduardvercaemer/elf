@@ -6,7 +6,7 @@
 /// Posible symbol types.
 /// Obtained from the lower 4 bits of the info byte.
 #[derive(PartialEq)]
-pub enum Type {
+enum Type {
     NoType,
     Object,
     Func,
@@ -21,7 +21,7 @@ pub enum Type {
 /// Posible symbol bindings.
 /// Obtained from the higher 4 bits of the info byte.
 #[derive(PartialEq)]
-pub enum Bind {
+enum Bind {
     Local,
     Global,
     Weak,
@@ -32,8 +32,8 @@ pub enum Bind {
 pub struct Sym {
     /// Index into the symbol string table.
     pub nameoff:    usize,      // 32-bits
-    pub etype:      Type,       // \_ 8-bits
-    pub bind:       Bind,       // /
+    etype:          Type,       // \_ 8-bits
+    bind:           Bind,       // /
     other:          u8,         // 8-bits
     pub shndx:      usize,      // 16-bits
     pub value:      u64,        // 64-bits
@@ -64,6 +64,22 @@ impl Type {
             _ => Self::Unhandled,
         }
     }
+
+    /// String slice representation of the type.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::NoType    => "no type",
+            Self::Object    => "object",
+            Self::Func      => "function",
+            Self::Section   => "section",
+            Self::File      => "file",
+            Self::Common    => "common",
+            Self::TLS       => "tls",
+            Self::Num       => "num",
+            Self::Unhandled => "unhandled",
+        }
+    }
+
 }
 
 /// Simple bind methods.
@@ -85,6 +101,16 @@ impl Bind {
             _ => Self::Unhandled,
         }
     }
+
+    /// Get a string slice representation of the bind.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Local     => "local",
+            Self::Global    => "global",
+            Self::Weak      => "weak",
+            Self::Unhandled => "unhandled",
+        }
+    }
 }
 
 /// Simple sym methods.
@@ -103,6 +129,21 @@ impl Sym {
             name:       None,
         }
     }
+
+    /// Get the symbols type string.
+    pub fn type_str(&self) -> &'static str {
+        self.etype.as_str()
+    }
+
+    /// Get the symbols bind string.
+    pub fn bind_str(&self) -> &'static str {
+        self.bind.as_str()
+    }
+
+    /// Wether the symbol represents a section.
+    pub fn is_section(&self) -> bool {
+        self.etype == Type::Section
+    }
 }
 
 /// Format methods.
@@ -113,17 +154,7 @@ mod format {
     impl fmt::Display for Type {
         /// Convert our symbol type into a string.
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            let s: &'static str = match self {
-                Self::NoType    => "no type",
-                Self::Object    => "object",
-                Self::Func      => "function",
-                Self::Section   => "section",
-                Self::File      => "file",
-                Self::Common    => "common",
-                Self::TLS       => "tls",
-                Self::Num       => "num",
-                Self::Unhandled => "unhandled",
-            };
+            let s = self.as_str();
             write!(f, "{}", s)
         }
     }
@@ -131,12 +162,7 @@ mod format {
     impl fmt::Display for Bind {
         /// Convert our symbol binding into a string.
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            let s: &'static str = match self {
-                Self::Local     => "local",
-                Self::Global    => "global",
-                Self::Weak      => "weak",
-                Self::Unhandled => "unhandled",
-            };
+            let s = self.as_str();
             write!(f, "{}", s)
         }
     }

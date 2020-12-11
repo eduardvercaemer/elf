@@ -6,7 +6,7 @@ mod sym;
 pub mod object {
     use super::header::Header;
     use super::section::Section;
-    use super::sym::{self,Sym};
+    use super::sym::Sym;
 
     /// Represents a whole object file.
     pub struct Object {
@@ -60,8 +60,8 @@ pub mod object {
                 for s in &self.symbols {
                     let name = s.name.as_ref().unwrap();
                     let val  = &s.value;
-                    let bind = s.bind.to_string();
-                    let t    = s.etype.to_string();
+                    let bind = s.bind_str();
+                    let t    = s.type_str();
 
                     println!("  {0:#010x} {1: <10} {2: <10} {3: <30}",
                         val, bind, t, name);
@@ -250,12 +250,12 @@ pub mod object {
             /// **Requires all sections to be loaded**
             /// **Requires all symbols to be loaded**
             fn extract_symbol_name(&self, file: &mut File, ndx: usize) -> String {
-                let sym     = &self.symbols[ndx];       // the symbol we want
+                let sym = &self.symbols[ndx];       // the symbol we want
 
                 /* section symbols get their name from the section
                  * they represent
                  */
-                if sym.etype == sym::Type::Section {
+                if sym.is_section() {
                     /* for section symbols, we use the shndx member
                      * to get the corresponding name
                      */
