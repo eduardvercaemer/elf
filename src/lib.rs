@@ -130,7 +130,7 @@ pub mod header {
         }
 
         /// Generate Machine object from machine value.
-        pub fn new(machine: u16) -> Self {
+        pub fn new(_machine: u16) -> Self {
             Self {
             }
         }
@@ -145,7 +145,7 @@ pub mod header {
         }
 
         /// Generate Version object from version value.
-        pub fn new(version: u32) -> Self {
+        pub fn new(_version: u32) -> Self {
             Self {
             }
         }
@@ -160,7 +160,7 @@ pub mod header {
         }
 
         /// Generate Flags object from flags value.
-        pub fn new(flags: u32) -> Self {
+        pub fn new(_flags: u32) -> Self {
             Self {
             }
         }
