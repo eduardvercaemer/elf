@@ -198,11 +198,26 @@ pub mod header {
     pub mod format {
         use std::fmt;
         use super::*;
-    
-        impl fmt::Display for Header {
-            /// **TODO:**
+
+        impl fmt::Debug for Type {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "this is a header")
+                let s: &'static str = match self {
+                    Self::Null => "unknown type",
+                    Self::Rel => "relocatable file",
+                    Self::Exec => "executable file",
+                    Self::Dyn => "shared object file",
+                    Self::Core => "core file",
+                };
+                write!(f, "{}", s)
+            }
+        }
+    
+        impl fmt::Debug for Header {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "Header {{ ")?;
+                write!(f, "type:{:?} ", self.etype)?;
+                write!(f, " }}")?;
+                Ok(())
             }
         }
     }
@@ -276,7 +291,7 @@ pub mod section {
         /// Index into shstrtab for this section's name.
         pub name:   usize,      // 32-bits
         /// Indicates the type of this section.
-        etype:      Type,       // 32-bits
+        pub etype:  Type,       // 32-bits
         flags:      u64,        // 64-bits
         addr:       u64,        // 64-bits      
         pub offset: u64,        // 64-bits
@@ -320,6 +335,34 @@ pub mod section {
                 info:      0,
                 addralign: 0,
                 entsize:   0,
+            }
+        }
+    }
+
+    /// Format methods.
+    mod format {
+        use std::fmt;
+        use super::*;
+
+        impl fmt::Debug for Type {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                let s: &'static str = match self {
+                    Self::Null => "null",
+                    Self::Progbits => "progbits",
+                    Self::Symtab => "symbol table",
+                    Self::Strtab => "string table",
+                    _ => "unhandled section",
+                };
+                write!(f, "{}", s)
+            }
+        }
+
+        impl fmt::Debug for Section {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "Section {{ ")?;
+                write!(f, "type:{:?} ", self.etype)?;
+                write!(f, "}}")?;
+                Ok(())
             }
         }
     }
@@ -392,7 +435,9 @@ pub mod object {
                 write!(f, "- sections : {}:\n", self.sections.len())?;
                 let mut i = 0usize;
                 while i < self.sections.len() {
-                    write!(f, "- - {} - {}\n", i, self.section_name(i))?;
+                    let section = &self.sections[i];
+                    let name = self.section_name(i);
+                    write!(f, "  - {} - {}: {:?}\n", i, name, section)?;
                     i += 1;
                 }
                 Ok(())
