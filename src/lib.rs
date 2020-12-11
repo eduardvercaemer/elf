@@ -171,7 +171,7 @@ mod sym {
 
 pub mod object {
     use super::header::Header;
-    use super::section::{self,Section};
+    use super::section::Section;
     use super::sym::{self,Sym};
 
     /// Represents a whole object file.
@@ -213,7 +213,7 @@ pub mod object {
                 for s in &self.sections {
                     let name = s.name.as_ref().unwrap();
                     let off  = s.offset;
-                    let t    = s.etype.to_string();
+                    let t    = s.type_str();
 
                     println!("  {0:#010x} {1: <10} {2: <30}",
                         off, t, name);
@@ -323,7 +323,7 @@ pub mod object {
                 let count = self.sections.len();
                 let symtab = loop {
                     let section = &self.sections[i];
-                    if section.etype == section::Type::Symtab {
+                    if section.is_symtab() {
                         break section;
                     }
                     i += 1;
@@ -435,7 +435,7 @@ pub mod object {
                 let mut i = 0;
                 let tabndx = loop {
                         let section = &self.sections[i];
-                        if section.etype == section::Type::Strtab {
+                        if section.is_strtab() {
                             break i;
                         }
                         i += 1;
