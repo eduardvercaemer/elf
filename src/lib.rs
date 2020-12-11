@@ -561,9 +561,9 @@ pub mod object {
             for s in &self.sections {
                 let name = s.name.as_ref().unwrap();
                 let off  = s.offset;
-                let t    = &s.etype;
+                let t    = s.etype.to_string();
 
-                println!("  # {0:#010x} {1: <30} {2: <30}", off, t, name);
+                println!("  # {0:#010x} {1: <20} {2: <30}", off, t, name);
             }
 
             println!("\n <> SYMBOLS");
@@ -572,7 +572,7 @@ pub mod object {
                 let name = s.name.as_ref().unwrap();
                 let val  = &s.value;
 
-                println!("  # {0:#010x} {1: <30}", val, name);
+                println!("  # {0:#010x} {1: <20}", val, name);
             }
         }
     }
