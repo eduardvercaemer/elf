@@ -64,20 +64,20 @@ pub mod header {
 
     /// ELF header struct.
     pub struct Header {
-        ident: Ident,       // 16 bytes
-        etype: Type,        // 16 bytes
-        machine: Machine,   // 16 bytes
-        version: Version,   // 32 bytes
-        entry: u64,
-        phoff: u64,
-        shoff: u64,
-        flags: Flags,       // 32 bytes
-        ehsize: u16,
-        phentsize: u16,
-        phnum: u16,
-        shentsize: u16,
-        shnum: u16,
-        shstrndx: u16,
+        ident:          Ident,      // 16-bits
+        etype:          Type,       // 16-bits
+        machine:        Machine,    // 16-bits
+        version:        Version,    // 32-bits
+        entry:          u64,        // 64-bits
+        phoff:          u64,        // 64-bits
+        pub shoff:      u64,        // 64-bits
+        flags:          Flags,      // 32-bits
+        ehsize:         u16,        // 16-bits
+        phentsize:      u16,        // 16-bits
+        phnum:          u16,        // 16-bits
+        pub shentsize:  u16,        // 16-bits
+        pub shnum:      u16,        // 16-bits
+        pub shstrndx:   usize,      // 16-bits
     }
 
     /// Simple Ident methods.
@@ -194,10 +194,23 @@ pub mod header {
         }
     }
 
+    /// Format methods.
+    pub mod format {
+        use std::fmt;
+        use super::*;
+    
+        impl fmt::Display for Header {
+            /// **TODO:**
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "this is a header")
+            }
+        }
+    }
+
     /// File IO methods.
     pub mod io {
         use std::fs::File;
-        use std::io::{self,Seek,Read};
+        use std::io::{Seek,Read,SeekFrom};
         use super::*;
         use super::super::util;
 
@@ -211,6 +224,9 @@ pub mod header {
             /// Extract ELF header from file (will seek).
             pub fn extract(file: &mut File) -> Self {
                 let mut new = Self::empty();
+
+                // go to start of file
+                file.seek(SeekFrom::Start(0)).unwrap();
                 
                 // ident
                 let mut ident = [0u8; 16];
@@ -219,16 +235,16 @@ pub mod header {
                 new.etype     = Type::new(util::read_u16(file));
                 new.machine   = Machine::new(util::read_u16(file));
                 new.version   = Version::new(util::read_u32(file));
-                new.entry     = util::read_u64(file);
-                new.phoff     = util::read_u64(file);
-                new.shoff     = util::read_u64(file);
+                new.entry     = util::read_u64(file) as u64;
+                new.phoff     = util::read_u64(file) as u64;
+                new.shoff     = util::read_u64(file) as u64;
                 new.flags     = Flags::new(util::read_u32(file));
-                new.ehsize    = util::read_u16(file);
-                new.phentsize = util::read_u16(file);
-                new.phnum     = util::read_u16(file);
-                new.shentsize = util::read_u16(file);
-                new.shnum     = util::read_u16(file);
-                new.shstrndx  = util::read_u16(file);
+                new.ehsize    = util::read_u16(file) as u16;
+                new.phentsize = util::read_u16(file) as u16;
+                new.phnum     = util::read_u16(file) as u16;
+                new.shentsize = util::read_u16(file) as u16;
+                new.shnum     = util::read_u16(file) as u16;
+                new.shstrndx  = util::read_u16(file) as usize;
 
                 new
             }
@@ -258,17 +274,17 @@ pub mod section {
     /// Represents a whole section in an ELF file.
     pub struct Section {
         /// Index into shstrtab for this section's name.
-        name: u32,
+        pub name:   usize,      // 32-bits
         /// Indicates the type of this section.
-        etype: Type,
-        flags: u64,
-        addr: u64,
-        offset: u64,
-        size: u64,
-        link: u32,
-        info: u32,
-        addralign: u64,
-        entsize: u64,
+        etype:      Type,       // 32-bits
+        flags:      u64,        // 64-bits
+        addr:       u64,        // 64-bits      
+        pub offset: u64,        // 64-bits
+        size:       u64,        // 64-bits
+        link:       usize,      // 32-bits
+        info:       u32,        // 32-bits
+        addralign:  usize,      // 64-bits
+        entsize:    u64,        // 64-bits
     }
 
     impl Type {
@@ -311,7 +327,6 @@ pub mod section {
     /// File IO methods.
     mod io {
         use std::fs::File;
-        use std::io::Read;
         use super::super::util;
         use super::*;
 
@@ -320,16 +335,16 @@ pub mod section {
             pub fn extract(file: &mut File) -> Self {
                 let mut new = Self::empty();
 
-                new.name      = util::read_u32(file);
+                new.name      = util::read_u32(file) as usize;
                 new.etype     = Type::new(util::read_u32(file));
-                new.flags     = util::read_u64(file);
-                new.addr      = util::read_u64(file);
-                new.offset    = util::read_u64(file);
-                new.size      = util::read_u64(file);
-                new.link      = util::read_u32(file);
-                new.info      = util::read_u32(file);
-                new.addralign = util::read_u64(file);
-                new.entsize   = util::read_u64(file);
+                new.flags     = util::read_u64(file) as u64;
+                new.addr      = util::read_u64(file) as u64;
+                new.offset    = util::read_u64(file) as u64;
+                new.size      = util::read_u64(file) as u64;
+                new.link      = util::read_u32(file) as usize;
+                new.info      = util::read_u32(file) as u32;
+                new.addralign = util::read_u64(file) as usize;
+                new.entsize   = util::read_u64(file) as u64;
 
                 new
             }
@@ -343,6 +358,8 @@ pub mod object {
 
     /// Represents a whole object file.
     pub struct Object {
+        /// Name of the ovject file.
+        name: String,
         /// Main ELF header.
         header: Header,
         /// Sections contained in the object file.
@@ -354,6 +371,7 @@ pub mod object {
         /// Default object.
         pub fn empty() -> Self {
             Self {
+                name: "null".to_string(),
                 header: Header::empty(),
                 sections: vec![],
             }
@@ -361,13 +379,39 @@ pub mod object {
 
     }
 
+    /// Format methods.
+    mod format {
+        use std::fmt;
+        use super::*;
+
+        impl fmt::Display for Object {
+            /// **TODO:**
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "object:\n")?;
+                write!(f, "- name : {}:\n", self.name)?;
+                write!(f, "- sections : {}:\n", self.sections.len())?;
+                let mut i = 0usize;
+                while i < self.sections.len() {
+                    write!(f, "- - {} - {}\n", i, self.section_name(i))?;
+                    i += 1;
+                }
+                Ok(())
+            }
+        }
+    }
+
     /// File IO methods.
     mod io {
         use std::fs::File;
+        use std::io::{Seek,SeekFrom};
         use super::*;
+        use super::super::util;
 
         impl Object {
             /// Generates an object from given file.
+            ///
+            /// TODO:
+            /// - Add error checking / handling.
             pub fn extract(file: &mut File) -> Self {
                 /* init default object */
                 let mut new = Self::empty();
@@ -378,13 +422,69 @@ pub mod object {
                 /* make sure its a valid file */
                 assert!(new.header.valid());
 
+                /* extract each section from the file */
+                new.extract_sections(file);
+
                 new
+            }
+
+            /// Extracts object file sections and populates
+            /// the sections vector with them.
+            fn extract_sections(&mut self, file: &mut File) {
+                let off = self.header.shoff;
+                let sz  = self.header.shentsize as u64;
+                let num = self.header.shnum as u64;
+
+                /* reset section vector */
+                self.sections.clear();
+
+                /* extract each section */
+                let mut i = 0u64;
+                while i < num {
+                    let curr = off + sz * i;
+                    file.seek(SeekFrom::Start(curr)).unwrap();
+                    let section = Section::extract(file);
+                    self.sections.push(section);
+                    i += 1;
+                }
             }
 
             /// Generates an object from given file name.
             pub fn from_file(filename: &str) -> Self {
                 let mut file = File::open(filename).unwrap();
-                Self::extract(&mut file)
+                let mut new = Self::extract(&mut file);
+                new.name = filename.to_string();
+                new
+            }
+
+            /// Returns the name of a section by the section index given.
+            /// Needs to open the file to fetch the string.
+            ///
+            /// TODO:
+            /// - Add section name cache, fetch from that first.
+            /// - Error check for section index bounds.
+            pub fn section_name(&self, ndx: usize) -> String {
+                /* seek into string in file */
+                let mut file = File::open(&self.name).unwrap();
+
+                let section = &self.sections[ndx];      // the section we want
+                let name = section.name;                // offset into name
+                let tabndx = self.header.shstrndx;      // index for str-table
+                let strtab = &self.sections[tabndx];    // 
+                let off = strtab.offset + name as u64;
+                file.seek(SeekFrom::Start(off)).unwrap();
+
+                /* read string untill null-byte */
+                let mut s: Vec<u8> = vec![];
+                let mut c: u8;
+                loop {
+                    c = util::read_u8(&mut file);
+                    if c == b'\0' {
+                        break;
+                    }
+                    s.push(c);
+                }
+                String::from_utf8(s).unwrap()
             }
         }
     }
@@ -393,6 +493,7 @@ pub mod object {
 #[cfg(test)]
 mod tests {
     use super::header::Header;
+    use super::object::Object;
 
     #[test]
     fn magic() {
@@ -400,5 +501,17 @@ mod tests {
         assert!(h.valid());
         let h = Header::from_file("/home/ed/repos/elf/samples/main.c");
         assert!(!h.valid());
+    }
+
+    #[test]
+    fn section_name() {
+        let o = Object::from_file("/home/ed/repos/elf/samples/main.o");
+        assert_eq!(o.section_name(2), ".data");
+    }
+
+    #[test]
+    fn display() {
+        let o = Object::from_file("/home/ed/repos/elf/samples/main.o");
+        println!("{}", o);
     }
 }
