@@ -200,26 +200,19 @@ pub mod header {
         use super::*;
 
         impl fmt::Display for Type {
+            /// Convert header type to string.
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 let s: &'static str = match self {
                     Self::Null => "unknown",
-                    Self::Rel => "relocatable file",
-                    Self::Exec => "executable file",
-                    Self::Dyn => "shared object file",
-                    Self::Core => "core file",
+                    Self::Rel  => "relocatable",
+                    Self::Exec => "executable",
+                    Self::Dyn  => "shared object",
+                    Self::Core => "core",
                 };
                 write!(f, "{}", s)
             }
         }
     
-        impl fmt::Display for Header {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "Header {{")?;
-                write!(f, " type:{} ", self.etype)?;
-                write!(f, " }}")?;
-                Ok(())
-            }
-        }
     }
 
     /// File IO methods.
@@ -230,13 +223,7 @@ pub mod header {
         use super::super::util;
 
         impl Header {
-            /// Generate ELF header from file name.
-            pub fn from_file(filename: &str) -> Self {
-                let mut file = File::open(filename).unwrap();
-                Self::extract(&mut file)
-            }
-
-            /// Extract ELF header from file (will seek).
+            /// Extract ELF header from file.
             pub fn extract(file: &mut File) -> Self {
                 let mut new = Self::empty();
 
@@ -313,16 +300,22 @@ pub mod section {
         }
 
         /// Create type from value.
+        /// **TODO: missing type parsing.**
         pub fn new(etype: u32) -> Self {
             match etype {
-                0 => Self::Null,
-                1 => Self::Progbits,
-                2 => Self::Symtab,
-                3 => Self::Strtab,
-                /* TODO:
-                 * - add rest of types
-                 */
-                _ => Self::Unhandled,
+                0  => Self::Null,
+                1  => Self::Progbits,
+                2  => Self::Symtab,
+                3  => Self::Strtab,
+                4  => Self::Rela,
+                5  => Self::Hash,
+                6  => Self::Dynamic,
+                7  => Self::Note,
+                8  => Self::Nobits,
+                9  => Self::Rel,
+                10 => Self::Shlib,
+                11 => Self::Dynsym,
+                _  => Self::Unhandled,
             }
         }
     }
@@ -354,24 +347,25 @@ pub mod section {
         use super::*;
 
         impl fmt::Display for Type {
+            /// Convert a section type to string.
+            /// **TODO: add rest of types.**
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 let s: &'static str = match self {
-                    Self::Null => "null",
+                    Self::Null     => "null",
                     Self::Progbits => "progbits",
-                    Self::Symtab => "symbol table",
-                    Self::Strtab => "string table",
-                    _ => "unhandled section",
+                    Self::Symtab   => "symtab",
+                    Self::Strtab   => "strtab",
+                    Self::Rela     => "rela",
+                    Self::Hash     => "hash",
+                    Self::Dynamic  => "dynamic",
+                    Self::Note     => "note",
+                    Self::Nobits   => "nobits",
+                    Self::Rel      => "rel",
+                    Self::Shlib    => "shlib",
+                    Self::Dynsym   => "dynsym",
+                    _              => "unhandled",
                 };
                 write!(f, "{}", s)
-            }
-        }
-
-        impl fmt::Display for Section {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "Section {{")?;
-                write!(f, " type:{}", self.etype)?;
-                write!(f, " }}")?;
-                Ok(())
             }
         }
     }
@@ -407,19 +401,24 @@ pub mod section {
 /// Relevant to symbol entries.
 mod sym {
     /// Posible symbol types.
-    /// Ubtained from the lower 4 bits of the info byte.
+    /// Obtained from the lower 4 bits of the info byte.
+    #[derive(PartialEq)]
     pub enum Type {
         NoType,
         Object,
         Func,
         Section,
         File,
+        Common,
+        TLS,
+        Num,
         Unhandled,
     }
 
     /// Posible symbol bindings.
-    /// Ubtained from the higher 4 bits of the info byte.
-    enum Bind {
+    /// Obtained from the higher 4 bits of the info byte.
+    #[derive(PartialEq)]
+    pub enum Bind {
         Local,
         Global,
         Weak,
@@ -431,9 +430,9 @@ mod sym {
         /// Index into the symbol string table.
         pub nameoff:    usize,      // 32-bits
         pub etype:      Type,       // \_ 8-bits
-        bind:           Bind,       // /
+        pub bind:       Bind,       // /
         other:          u8,         // 8-bits
-        shndx:          usize,      // 16-bits
+        pub shndx:      usize,      // 16-bits
         pub value:      u64,        // 64-bits
         size:           u64,        // 64-bits
 
@@ -448,9 +447,12 @@ mod sym {
             Self::Unhandled
         }
 
-        /// Get type from value of info.
+        /// Get type from value of `info`.
+        ///
+        /// The type is contained in the lower 4-bits of
+        /// `info`.
         pub fn new(info: u8) -> Self {
-            match info {
+            match info & 0x0f {
                 0 => Self::NoType,
                 1 => Self::Object,
                 2 => Self::Func,
@@ -469,8 +471,11 @@ mod sym {
         }
 
         /// Get bind from value of info.
+        ///
+        /// The bind is contained in the higher 4-bits of
+        /// `info`.
         pub fn new(info: u8) -> Self {
-            match info {
+            match info >> 4 {
                 0 => Self::Local,
                 1 => Self::Global,
                 2 => Self::Weak,
@@ -493,6 +498,43 @@ mod sym {
                 size:       0,
 
                 name:       None,
+            }
+        }
+    }
+
+    /// Format methods.
+    mod format {
+        use std::fmt;
+        use super::*;
+
+        impl fmt::Display for Type {
+            /// Convert our symbol type into a string.
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                let s: &'static str = match self {
+                    Self::NoType    => "no type",
+                    Self::Object    => "object",
+                    Self::Func      => "function",
+                    Self::Section   => "section",
+                    Self::File      => "file",
+                    Self::Common    => "common",
+                    Self::TLS       => "tls",
+                    Self::Num       => "num",
+                    Self::Unhandled => "unhandled",
+                };
+                write!(f, "{}", s)
+            }
+        }
+
+        impl fmt::Display for Bind {
+            /// Convert our symbol binding into a string.
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                let s: &'static str = match self {
+                    Self::Local     => "local",
+                    Self::Global    => "global",
+                    Self::Weak      => "weak",
+                    Self::Unhandled => "unhandled",
+                };
+                write!(f, "{}", s)
             }
         }
     }
@@ -551,28 +593,41 @@ pub mod object {
 
     }
 
-    /// Displaying methods.
-    impl Object {
-        pub fn print(&self) {
-            println!("{0:^80}\n", "==========   Object   ==========");
+    /// Format methods.
+    mod format {
+        use super::*;
 
-            println!(" <> SECTIONS");
+        /// Displaying methods.
+        impl Object {
+            pub fn print(&self) {
+                println!("{0:^80}\n", "==========   Object   ==========");
 
-            for s in &self.sections {
-                let name = s.name.as_ref().unwrap();
-                let off  = s.offset;
-                let t    = s.etype.to_string();
+                println!(" <> SECTIONS");
+                println!("  {0: <10} {1: <10} {2: <30}",
+                    "offset", "type", "name");
 
-                println!("  # {0:#010x} {1: <20} {2: <30}", off, t, name);
-            }
+                for s in &self.sections {
+                    let name = s.name.as_ref().unwrap();
+                    let off  = s.offset;
+                    let t    = s.etype.to_string();
 
-            println!("\n <> SYMBOLS");
+                    println!("  {0:#010x} {1: <10} {2: <30}",
+                        off, t, name);
+                }
 
-            for s in &self.symbols {
-                let name = s.name.as_ref().unwrap();
-                let val  = &s.value;
+                println!("\n <> SYMBOLS");
+                println!("  {0: <10} {1: <10} {2: <10} {3: <30}",
+                    "value", "bind", "type", "name");
 
-                println!("  # {0:#010x} {1: <20}", val, name);
+                for s in &self.symbols {
+                    let name = s.name.as_ref().unwrap();
+                    let val  = &s.value;
+                    let bind = s.bind.to_string();
+                    let t    = s.etype.to_string();
+
+                    println!("  {0:#010x} {1: <10} {2: <10} {3: <30}",
+                        val, bind, t, name);
+                }
             }
         }
     }
@@ -758,29 +813,37 @@ pub mod object {
             /// **Requires all symbols to be loaded**
             fn extract_symbol_name(&self, file: &mut File, ndx: usize) -> String {
                 let sym     = &self.symbols[ndx];       // the symbol we want
-                let nameoff = sym.nameoff;              // offset into name
 
-                /* section symbols get their name from shstrndx */
-                let tabndx = match sym.etype {
-                    sym::Type::Section => self.header.shstrndx,
-                    _ => {
-                        let mut i = 0;
-                        loop {
-                            let section = &self.sections[i];
-                            if section.etype == section::Type::Strtab {
-                                break i;
-                            }
-                            i += 1;
-                            if i >= self.sections.len() {
-                                panic!("no strtab found");
-                            }
+                /* section symbols get their name from the section
+                 * they represent
+                 */
+                if sym.etype == sym::Type::Section {
+                    /* for section symbols, we use the shndx member
+                     * to get the corresponding name
+                     */
+                    let ndx = sym.shndx;
+                    return self.sections[ndx].name.as_ref().unwrap().clone();
+                }
+
+                /* otherwise the name comes from the file's symbol
+                 * string table
+                 */
+                let mut i = 0;
+                let tabndx = loop {
+                        let section = &self.sections[i];
+                        if section.etype == section::Type::Strtab {
+                            break i;
                         }
-                    }
+                        i += 1;
+                        if i >= self.sections.len() {
+                            panic!("no strtab found");
+                        }
                 };
-                let strtab = &self.sections[tabndx];      // index for str-tab
-                let off = strtab.offset + nameoff as u64; // final offset
+                let strtab = &self.sections[tabndx];
 
                 /* seek into string in file */
+                let nameoff = sym.nameoff;
+                let off = strtab.offset + nameoff as u64;
                 file.seek(SeekFrom::Start(off)).unwrap();
 
                 /* read string untill null-byte */
