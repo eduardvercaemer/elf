@@ -839,18 +839,8 @@ pub mod object {
 mod tests {
     use super::header::Header;
     use super::object::Object;
-
-    #[test]
-    fn magic() {
-        let h = Header::from_file("/home/ed/repos/elf/samples/main.o");
-        assert!(h.valid());
-        let h = Header::from_file("/home/ed/repos/elf/samples/main.c");
-        assert!(!h.valid());
-    }
-
-    #[test]
-    fn display() {
-        let o = Object::from_file("/home/ed/repos/elf/samples/main.o");
-        o.print();
-    }
+    
+    /*
+     * TODO:
+     */
 }
