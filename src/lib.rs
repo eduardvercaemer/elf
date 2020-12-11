@@ -199,10 +199,10 @@ pub mod header {
         use std::fmt;
         use super::*;
 
-        impl fmt::Debug for Type {
+        impl fmt::Display for Type {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 let s: &'static str = match self {
-                    Self::Null => "unknown type",
+                    Self::Null => "unknown",
                     Self::Rel => "relocatable file",
                     Self::Exec => "executable file",
                     Self::Dyn => "shared object file",
@@ -212,10 +212,10 @@ pub mod header {
             }
         }
     
-        impl fmt::Debug for Header {
+        impl fmt::Display for Header {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "Header {{ ")?;
-                write!(f, "type:{:?} ", self.etype)?;
+                write!(f, "Header {{")?;
+                write!(f, " type:{} ", self.etype)?;
                 write!(f, " }}")?;
                 Ok(())
             }
@@ -290,7 +290,7 @@ pub mod section {
     /// Represents a whole section in an ELF file.
     pub struct Section {
         /// Index into shstrtab for this section's name.
-        pub name:       usize,      // 32-bits
+        pub nameoff:    usize,      // 32-bits
         /// Indicates the type of this section.
         pub etype:      Type,       // 32-bits
         flags:          u64,        // 64-bits
@@ -301,6 +301,9 @@ pub mod section {
         info:           u32,        // 32-bits
         addralign:      usize,      // 64-bits
         pub entsize:    u64,        // 64-bits
+
+        /// Extracted name string.
+        pub name:       Option<String>,
     }
 
     impl Type {
@@ -329,16 +332,18 @@ pub mod section {
         /// Default section.
         pub fn empty() -> Self {
             Self {
-                name:      0,
-                etype:     Type::empty(),
-                flags:     0,
-                addr:      0,
-                offset:    0,
-                size:      0,
-                link:      0,
-                info:      0,
-                addralign: 0,
-                entsize:   0,
+                nameoff:    0,
+                etype:      Type::empty(),
+                flags:      0,
+                addr:       0,
+                offset:     0,
+                size:       0,
+                link:       0,
+                info:       0,
+                addralign:  0,
+                entsize:    0,
+
+                name:       None,
             }
         }
     }
@@ -348,7 +353,7 @@ pub mod section {
         use std::fmt;
         use super::*;
 
-        impl fmt::Debug for Type {
+        impl fmt::Display for Type {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 let s: &'static str = match self {
                     Self::Null => "null",
@@ -361,11 +366,11 @@ pub mod section {
             }
         }
 
-        impl fmt::Debug for Section {
+        impl fmt::Display for Section {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "Section {{ ")?;
-                write!(f, "type:{:?} ", self.etype)?;
-                write!(f, "}}")?;
+                write!(f, "Section {{")?;
+                write!(f, " type:{}", self.etype)?;
+                write!(f, " }}")?;
                 Ok(())
             }
         }
@@ -382,7 +387,7 @@ pub mod section {
             pub fn extract(file: &mut File) -> Self {
                 let mut new = Self::empty();
 
-                new.name      = util::read_u32(file) as usize;
+                new.nameoff   = util::read_u32(file) as usize;
                 new.etype     = Type::new(util::read_u32(file));
                 new.flags     = util::read_u64(file) as u64;
                 new.addr      = util::read_u64(file) as u64;
@@ -403,7 +408,7 @@ pub mod section {
 mod sym {
     /// Posible symbol types.
     /// Ubtained from the lower 4 bits of the info byte.
-    enum Type {
+    pub enum Type {
         NoType,
         Object,
         Func,
@@ -424,13 +429,16 @@ mod sym {
     /// Represents an individual entry in a symbol table.
     pub struct Sym {
         /// Index into the symbol string table.
-        pub name:   usize,      // 32-bits
-        etype:      Type,       // \_ 8-bits
-        bind:       Bind,       // /
-        other:      u8,         // 8-bits
-        shndx:      usize,      // 16-bits
-        value:      u64,        // 64-bits
-        size:       u64,        // 64-bits
+        pub nameoff:    usize,      // 32-bits
+        pub etype:      Type,       // \_ 8-bits
+        bind:           Bind,       // /
+        other:          u8,         // 8-bits
+        shndx:          usize,      // 16-bits
+        pub value:      u64,        // 64-bits
+        size:           u64,        // 64-bits
+
+        /// Extracted name string.
+        pub name:       Option<String>,
     }
 
     /// Simple type methods.
@@ -476,13 +484,15 @@ mod sym {
         /// Default sym.
         pub fn empty() -> Self {
             Self {
-                name:   0,
-                etype:  Type::empty(),
-                bind:   Bind::empty(),
-                other:  0,
-                shndx:  0,
-                value:  0,
-                size:   0,
+                nameoff:    0,
+                etype:      Type::empty(),
+                bind:       Bind::empty(),
+                other:      0,
+                shndx:      0,
+                value:      0,
+                size:       0,
+
+                name:       None,
             }
         }
     }
@@ -498,14 +508,14 @@ mod sym {
             pub fn extract(file: &mut File) -> Self {
                 let mut new = Self::empty();
 
-                new.name  = util::read_u32(file) as usize;
-                let info  = util::read_u8(file);
-                new.etype = Type::new(info);
-                new.bind  = Bind::new(info);
-                new.other = util::read_u8(file);
-                new.shndx = util::read_u16(file) as usize;
-                new.value = util::read_u64(file);
-                new.size  = util::read_u64(file);
+                new.nameoff = util::read_u32(file) as usize;
+                let info    = util::read_u8(file);
+                new.etype   = Type::new(info);
+                new.bind    = Bind::new(info);
+                new.other   = util::read_u8(file);
+                new.shndx   = util::read_u16(file) as usize;
+                new.value   = util::read_u64(file);
+                new.size    = util::read_u64(file);
 
                 new
             }
@@ -516,12 +526,10 @@ mod sym {
 pub mod object {
     use super::header::Header;
     use super::section::{self,Section};
-    use super::sym::Sym;
+    use super::sym::{self,Sym};
 
     /// Represents a whole object file.
     pub struct Object {
-        /// Name of the object file.
-        name: String,
         /// Main ELF header.
         header: Header,
         /// Sections contained in the object file.
@@ -535,7 +543,6 @@ pub mod object {
         /// Default object.
         pub fn empty() -> Self {
             Self {
-                name:       "null".to_string(),
                 header:     Header::empty(),
                 sections:   vec![],
                 symbols:    vec![],
@@ -544,40 +551,28 @@ pub mod object {
 
     }
 
-    /// Format methods.
-    mod format {
-        use std::fmt;
-        use super::*;
+    /// Displaying methods.
+    impl Object {
+        pub fn print(&self) {
+            println!("{0:^80}\n", "==========   Object   ==========");
 
-        impl fmt::Display for Object {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                let n_sections = self.sections.len();
-                let n_symbols  = self.symbols.len();
+            println!(" <> SECTIONS");
 
-                write!(f, "object:\n")?;
-                write!(f, "- name : {}:\n", self.name)?;
+            for s in &self.sections {
+                let name = s.name.as_ref().unwrap();
+                let off  = s.offset;
+                let t    = &s.etype;
 
-                // print sections
-                write!(f, "- sections : {}:\n", n_sections)?;
-                let mut i = 0usize;
-                while i < n_sections {
-                    let section = &self.sections[i];
-                    let name = self.section_name(i);
-                    write!(f, "  - {} - {}: {:?}\n", i, name, section)?;
-                    i += 1;
-                }
+                println!("  # {0:#010x} {1: <30} {2: <30}", off, t, name);
+            }
 
-                // print symbols
-                write!(f, "- symbols : {}:\n", n_symbols)?;
-                let mut i = 0usize;
-                while i < n_symbols {
-                    let symbol = &self.symbols[i];
-                    let name = self.symbol_name(i);
-                    write!(f, "  - {} - {}\n", i, name)?;
-                    i += 1;
-                }
+            println!("\n <> SYMBOLS");
 
-                Ok(())
+            for s in &self.symbols {
+                let name = s.name.as_ref().unwrap();
+                let val  = &s.value;
+
+                println!("  # {0:#010x} {1: <30}", val, name);
             }
         }
     }
@@ -590,31 +585,52 @@ pub mod object {
         use super::super::util;
 
         impl Object {
-            /// Generates an object from given file.
+            /// Generates a complete object file representation
+            /// from the given file name.
+            pub fn from_file(filename: &str) -> Self {
+                let mut file = File::open(filename).unwrap();
+                Self::extract(&mut file)
+            }
+
+            /// Extracts a complete `Object` from given file.
             ///
-            /// TODO:
-            /// - Add error checking / handling.
-            pub fn extract(file: &mut File) -> Self {
+            /// Will use the given file, to extract all the information it
+            /// needs.
+            /// - First the main ELF header.
+            /// - Then all sections.
+            /// - Then all symbols.
+            /// - Then all the names for these.
+            fn extract(file: &mut File) -> Self {
                 /* init default object */
                 let mut new = Self::empty();
 
-                /* extract ELF header */
-                new.header = Header::extract(file);
-
-                /* make sure its a valid file */
+                /* extract properties from file */
+                new.extract_header(file);
                 assert!(new.header.valid());
-
-                /* extract each section from the file */
                 new.extract_sections(file);
-
-                /* extract all symbols from symtab */
                 new.extract_symbols(file);
+                new.extract_section_names(file);
+                new.extract_symbol_names(file);
 
                 new
             }
 
-            /// Extracts object file sections and populates
-            /// the sections vector with them.
+            /// Populates the object's ELf header with the info
+            /// extracted from the given file.
+            fn extract_header(&mut self, file: &mut File) {
+                /* go to beginning of file */
+                file.seek(SeekFrom::Start(0)).unwrap();
+                /* extract header */
+                self.header = Header::extract(file);
+            }
+
+            /// Populates the object's section vector with the info
+            /// extracted from the given file.
+            ///
+            /// Will extract sections based on the values of
+            /// `self.header`.
+            ///
+            /// - **Requires a valid ELF header to have been loaded first.**
             fn extract_sections(&mut self, file: &mut File) {
                 let off = self.header.shoff;
                 let sz  = self.header.shentsize as u64;
@@ -634,10 +650,16 @@ pub mod object {
                 }
             }
 
-            /// Extracts symbol entries from the file and populates
-            /// symbol vector with them.
+            /// Populates the object's symbols vector with the info
+            /// extracted from the given file.
+            ///
+            /// Will extract symbols based on the values of the sections
+            /// vector `self.sections`.
+            ///
+            /// - **Requires a valid ELF header to have been loaded first.**
+            /// - **Requires a valid sections vector to have been loaded first.**
             fn extract_symbols(&mut self, file: &mut File) {
-                /* find symbol section */
+                /* find symtab section */
                 let mut i = 0;
                 let count = self.sections.len();
                 let symtab = loop {
@@ -669,77 +691,109 @@ pub mod object {
                 }
             }
 
-            /// Generates an object from given file name.
-            pub fn from_file(filename: &str) -> Self {
-                let mut file = File::open(filename).unwrap();
-                let mut new = Self::extract(&mut file);
-                new.name = filename.to_string();
-                new
+            /// Will update all the sections in `self.sections` by extracting
+            /// their name from the given file.
+            ///
+            /// - **Requires a valid ELF header to have been loaded first.**
+            /// - **Requires a valid sections vector to have been loaded first.**
+            fn extract_section_names(&mut self, file: &mut File) {
+                let num = self.sections.len();
+                let mut i = 0;
+                /* extract each name */
+                while i < num {
+                    let name = self.extract_section_name(file, i);
+                    self.sections[i].name = Some(name);
+                    i += 1;
+                }
             }
 
-            /// Returns the name of a section by the section index given.
-            /// Needs to open the file to fetch the string.
+            /// Will update all the symbols in `self.symbols` by extracting
+            /// their name from the given file.
             ///
-            /// TODO:
-            /// - Add section name cache, fetch from that first.
-            /// - Error check for section index bounds.
-            pub fn section_name(&self, ndx: usize) -> String {
-                /* seek into string in file */
-                let mut file = File::open(&self.name).unwrap();
+            /// - **Requires a valid ELF header to have been loaded first.**
+            /// - **Requires a valid sections vector to have been loaded first.**
+            /// - **Requires a valid symbols vector to have been loaded first.**
+            fn extract_symbol_names(&mut self, file: &mut File) {
+                let num = self.symbols.len();
+                let mut i = 0;
+                /* extract each name */
+                while i < num {
+                    let name = self.extract_symbol_name(file, i);
+                    self.symbols[i].name = Some(name);
+                    i += 1;
+                }
+            }
 
-                let section = &self.sections[ndx];      // the section we want
-                let name = section.name;                // offset into name
-                let tabndx = self.header.shstrndx;      // index for str-table
-                let strtab = &self.sections[tabndx];
-                let off = strtab.offset + name as u64;
+
+            /// Extracts the name of a section by the section index given.
+            ///
+            /// **Requires all sections to be loaded**
+            fn extract_section_name(&self, file: &mut File, ndx: usize) -> String {
+                let section = &self.sections[ndx];        // the section we want
+                let nameoff = section.nameoff;            // offset into name
+                let tabndx  = self.header.shstrndx;       // index for str-table
+                let strtab  = &self.sections[tabndx];
+                let off = strtab.offset + nameoff as u64; // final offset
+
+                /* seek into string */
                 file.seek(SeekFrom::Start(off)).unwrap();
 
                 /* read string untill null-byte */
                 let mut s: Vec<u8> = vec![];
                 let mut c: u8;
                 loop {
-                    c = util::read_u8(&mut file);
+                    c = util::read_u8(file);
                     if c == b'\0' {
                         break;
                     }
                     s.push(c);
                 }
+
                 String::from_utf8(s).unwrap()
             }
 
-            /// Returns the name of the symbol by the given index.
-            pub fn symbol_name(&self, ndx: usize) -> String {
-                /* seek into string in file */
-                let mut file = File::open(&self.name).unwrap();
+            /// Extracts the name of a symbol by the index given.
+            ///
+            /// **Requires all sections to be loaded**
+            /// **Requires all symbols to be loaded**
+            fn extract_symbol_name(&self, file: &mut File, ndx: usize) -> String {
+                let sym     = &self.symbols[ndx];       // the symbol we want
+                let nameoff = sym.nameoff;              // offset into name
 
-                /* find strtab for syms */
-                let mut i = 0;
-                let strtab = loop {
-                    let section = &self.sections[i];
-                    if section.etype == section::Type::Strtab {
-                        break section;
-                    }
-                    i += 1;
-                    if i >= self.sections.len() {
-                        panic!("no strtab found");
+                /* section symbols get their name from shstrndx */
+                let tabndx = match sym.etype {
+                    sym::Type::Section => self.header.shstrndx,
+                    _ => {
+                        let mut i = 0;
+                        loop {
+                            let section = &self.sections[i];
+                            if section.etype == section::Type::Strtab {
+                                break i;
+                            }
+                            i += 1;
+                            if i >= self.sections.len() {
+                                panic!("no strtab found");
+                            }
+                        }
                     }
                 };
+                let strtab = &self.sections[tabndx];      // index for str-tab
+                let off = strtab.offset + nameoff as u64; // final offset
 
-                let sym  = &self.symbols[ndx];
-                let name = sym.name;
-                let off  = strtab.offset + name as u64;
+                /* seek into string in file */
                 file.seek(SeekFrom::Start(off)).unwrap();
 
                 /* read string untill null-byte */
                 let mut s: Vec<u8> = vec![];
                 let mut c: u8;
                 loop {
-                    c = util::read_u8(&mut file);
+                    c = util::read_u8(file);
                     if c == b'\0' {
                         break;
                     }
                     s.push(c);
                 }
+
                 String::from_utf8(s).unwrap()
             }
         }
@@ -760,14 +814,8 @@ mod tests {
     }
 
     #[test]
-    fn section_name() {
-        let o = Object::from_file("/home/ed/repos/elf/samples/main.o");
-        assert_eq!(o.section_name(2), ".data");
-    }
-
-    #[test]
     fn display() {
         let o = Object::from_file("/home/ed/repos/elf/samples/main.o");
-        println!("{}", o);
+        o.print();
     }
 }
