@@ -44,7 +44,7 @@ pub struct Header {
     etype:          Type,       // 16-bits
     machine:        Machine,    // 16-bits
     version:        Version,    // 32-bits
-    entry:          u64,        // 64-bits
+    pub entry:      u64,        // 64-bits
     phoff:          u64,        // 64-bits
     pub shoff:      u64,        // 64-bits
     flags:          Flags,      // 32-bits
@@ -94,6 +94,17 @@ impl Type {
             4 => Self::Core,
             _ => Self::Null,
         }
+    }
+
+    /// Get string slice representation of the type.
+    pub fn as_str(&self) -> &'static str {
+            match self {
+                Self::Null => "unknown",
+                Self::Rel  => "relocatable",
+                Self::Exec => "executable",
+                Self::Dyn  => "shared object",
+                Self::Core => "core",
+            }
     }
 }
 
@@ -168,6 +179,11 @@ impl Header {
     pub fn valid(&self) -> bool {
         self.ident.valid
     }
+
+    /// Get string slice for header type.
+    pub fn type_str(&self) -> &'static str {
+        self.etype.as_str()
+    }
 }
 
 /// Format methods.
@@ -178,13 +194,7 @@ pub mod format {
     impl fmt::Display for Type {
         /// Convert header type to string.
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            let s: &'static str = match self {
-                Self::Null => "unknown",
-                Self::Rel  => "relocatable",
-                Self::Exec => "executable",
-                Self::Dyn  => "shared object",
-                Self::Core => "core",
-            };
+            let s = self.as_str();
             write!(f, "{}", s)
         }
     }

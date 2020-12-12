@@ -38,10 +38,20 @@ pub mod object {
         /// Displaying methods.
         impl Object {
             pub fn print(&self) {
-                println!("{0:^80}\n", "==========   Object   ==========");
+                println!("{0:^80}",
+                    "==========   ELF Object   ==========");
 
-                println!(" <> SECTIONS");
-                println!("  {0: <10} {1: <10} {2: <30}",
+                println!("\n <> HEADER\n");
+                let t = self.header.type_str();
+                println!("  {0: >10} : {1: <10}",
+                    "type", t);
+                let entry = self.header.entry;
+                println!("  {0: >10} : {1: <10}",
+                    "entry", format!("{0:#010X}", entry));
+
+
+                println!("\n <> SECTIONS\n");
+                println!("  {0: <10} {1: <10} {2: <30}\n",
                     "offset", "type", "name");
 
                 for s in &self.sections {
@@ -53,8 +63,8 @@ pub mod object {
                         off, t, name);
                 }
 
-                println!("\n <> SYMBOLS");
-                println!("  {0: <10} {1: <10} {2: <10} {3: <30}",
+                println!("\n <> SYMBOLS\n");
+                println!("  {0: <10} {1: <10} {2: <10} {3: <30}\n",
                     "value", "bind", "type", "name");
 
                 for s in &self.symbols {
