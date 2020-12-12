@@ -45,12 +45,12 @@ pub struct Header {
     machine:        Machine,    // 16-bits
     version:        Version,    // 32-bits
     pub entry:      u64,        // 64-bits
-    phoff:          u64,        // 64-bits
+    pub phoff:      u64,        // 64-bits
     pub shoff:      u64,        // 64-bits
     flags:          Flags,      // 32-bits
     ehsize:         u16,        // 16-bits
-    phentsize:      u16,        // 16-bits
-    phnum:          u16,        // 16-bits
+    pub phentsize:  u16,        // 16-bits
+    pub phnum:      u16,        // 16-bits
     pub shentsize:  u16,        // 16-bits
     pub shnum:      u16,        // 16-bits
     pub shstrndx:   usize,      // 16-bits

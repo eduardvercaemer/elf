@@ -1,11 +1,13 @@
 mod util;
 mod header;
+mod segment;
 mod section;
 mod sym;
 
 pub mod object {
     use super::header::Header;
     use super::section::Section;
+    use super::segment::Segment;
     use super::sym::Sym;
 
     /// Represents a whole object file.
@@ -14,6 +16,8 @@ pub mod object {
         header: Header,
         /// Sections contained in the object file.
         sections: Vec<Section>,
+        /// Segments contained in the object file.
+        segments: Vec<Segment>,
         /// Symbols contained in the object file.
         symbols: Vec<Sym>,
     }
@@ -26,6 +30,7 @@ pub mod object {
                 header:     Header::empty(),
                 sections:   vec![],
                 symbols:    vec![],
+                segments:   vec![],
             }
         }
 
@@ -48,6 +53,20 @@ pub mod object {
                 let entry = self.header.entry;
                 println!("  {0: >10} : {1: <10}",
                     "entry", format!("{0:#010X}", entry));
+
+                println!("\n <> SEGMENTS\n");
+                println!("  {0: <10} {1: <10} {2: <30} {3: <10}\n",
+                    "vaddr", "paddr", "type", "align");
+
+                for s in &self.segments {
+                    let vaddr = s.vaddr;
+                    let paddr = s.vaddr;
+                    let t     = s.type_str();
+                    let align = s.align;
+
+                    println!("  {0:#010x} {1:#010x} {2: <30} {3: <10}",
+                        vaddr, paddr, t, align);
+                }
 
 
                 println!("\n <> SECTIONS\n");
@@ -112,6 +131,7 @@ pub mod object {
                 assert!(new.header.valid());
                 new.extract_sections(file);
                 new.extract_symbols(file);
+                new.extract_segments(file);
                 new.extract_section_names(file);
                 new.extract_symbol_names(file);
 
@@ -149,6 +169,32 @@ pub mod object {
                     file.seek(SeekFrom::Start(curr)).unwrap();
                     let section = Section::extract(file);
                     self.sections.push(section);
+                    i += 1;
+                }
+            }
+
+            /// Populates the object's segment vector with the info
+            /// extracted from the given file.
+            ///
+            /// Will extract segments based on the values of
+            /// `self.header`.
+            ///
+            /// - **Requires a valid ELF header to have been loaded first.**
+            fn extract_segments(&mut self, file: &mut File) {
+                let off = self.header.phoff;
+                let sz  = self.header.phentsize as u64;
+                let num = self.header.phnum as u64;
+
+                /* reset segment vector */
+                self.segments.clear();
+
+                /* extract each segment */
+                let mut i = 0u64;
+                while i < num {
+                    let curr = off + sz * i;
+                    file.seek(SeekFrom::Start(curr)).unwrap();
+                    let segment = Segment::extract(file);
+                    self.segments.push(segment);
                     i += 1;
                 }
             }
